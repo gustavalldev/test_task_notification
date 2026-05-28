@@ -83,6 +83,40 @@ describe("HTTP API", () => {
     });
   });
 
+  it("applies repeated preference updates idempotently", async () => {
+    app = createTestApp();
+    const payload = {
+      preferences: [
+        {
+          notificationType: "marketing_email",
+          channel: "email",
+          enabled: false
+        }
+      ],
+      quietHours: {
+        enabled: true,
+        start: "22:00",
+        end: "08:00",
+        timezone: "Europe/Moscow"
+      }
+    };
+
+    const firstResponse = await app.inject({
+      method: "POST",
+      url: "/users/user-1/preferences",
+      payload
+    });
+    const secondResponse = await app.inject({
+      method: "POST",
+      url: "/users/user-1/preferences",
+      payload
+    });
+
+    expect(firstResponse.statusCode).toBe(200);
+    expect(secondResponse.statusCode).toBe(200);
+    expect(secondResponse.json()).toEqual(firstResponse.json());
+  });
+
   it("creates a global policy through the API and uses it during evaluation", async () => {
     app = createTestApp();
 
@@ -134,6 +168,33 @@ describe("HTTP API", () => {
     });
 
     expect(evaluateResponse.statusCode).toBe(400);
-    expect(evaluateResponse.json().error).toBe("validation_error");
+    expect(evaluateResponse.json()).toMatchObject({
+      error: "validation_error",
+      message: "Request validation failed",
+      fields: [
+        {
+          path: "region",
+          code: "invalid_enum_value"
+        }
+      ]
+    });
+  });
+
+  it("returns the OpenAPI document", async () => {
+    app = createTestApp();
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/openapi.json"
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({
+      openapi: "3.1.0",
+      paths: {
+        "/evaluate": expect.any(Object),
+        "/users/{id}/preferences": expect.any(Object)
+      }
+    });
   });
 });

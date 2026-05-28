@@ -25,12 +25,18 @@ The service listens on `http://localhost:3000` by default.
 npm run dev              # start Fastify with tsx watch
 npm run build            # compile TypeScript to dist/
 npm start                # run compiled server
-npm test                 # run Vitest tests
+npm test                 # run fast domain and HTTP tests
+npm run test:integration # run PostgreSQL-backed repository tests
+npm run test:all         # run both fast and integration suites
 npm run typecheck        # strict TypeScript check
 npm run prisma:deploy    # apply existing migrations
 npm run prisma:migrate   # apply local Prisma migrations
 npm run db:push          # push schema without creating a migration
 ```
+
+`npm run test:integration` expects `TEST_DATABASE_URL` or `DATABASE_URL` to point to
+a migrated PostgreSQL database. The GitHub Actions workflow starts PostgreSQL,
+applies migrations, and runs the full suite on every push and pull request.
 
 ## API
 
@@ -41,6 +47,14 @@ GET /users/:id/preferences
 ```
 
 Returns the merged preference view: database-backed defaults plus user overrides and quiet hours.
+
+### OpenAPI
+
+```http
+GET /openapi.json
+```
+
+Returns an OpenAPI 3.1 document for the REST API.
 
 ### Update preferences
 
@@ -144,6 +158,14 @@ The domain service depends on interfaces, not Prisma. Default preferences are se
 ## Logging
 
 Fastify/Pino logs preference updates, policy creation, and every evaluation decision with user id, notification type, channel, decision, and reason.
+
+## Verification
+
+The repository includes three verification layers:
+
+- Domain tests for business rules.
+- HTTP tests for request validation, idempotency, and API behavior.
+- PostgreSQL integration tests for Prisma adapters, seeded defaults, upsert behavior, global policy matching, quiet hours, and database constraints.
 
 ## Production Follow-ups
 

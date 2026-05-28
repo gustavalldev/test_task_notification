@@ -1,5 +1,5 @@
 import Fastify, { type FastifyBaseLogger, type FastifyInstance } from "fastify";
-import { ZodError, z } from "zod";
+import { ZodError, z, type ZodIssue } from "zod";
 import { channels, notificationTypes, regions } from "./domain/types.js";
 import type {
   EvaluationResult,
@@ -13,6 +13,7 @@ import { createPrismaClient } from "./infrastructure/prisma/client.js";
 import { PrismaDefaultPreferenceRepository } from "./infrastructure/prisma/prisma-default-preference-repository.js";
 import { PrismaGlobalPolicyRepository } from "./infrastructure/prisma/prisma-global-policy-repository.js";
 import { PrismaPreferenceRepository } from "./infrastructure/prisma/prisma-preference-repository.js";
+import { openApiDocument } from "./openapi.js";
 
 type AppOptions = {
   service?: NotificationPreferencesService;
@@ -86,7 +87,8 @@ export function createApp(options: AppOptions = {}): FastifyInstance {
     if (error instanceof ZodError) {
       reply.status(400).send({
         error: "validation_error",
-        details: error.issues
+        message: "Request validation failed",
+        fields: formatZodIssues(error.issues)
       });
       return;
     }
@@ -94,13 +96,17 @@ export function createApp(options: AppOptions = {}): FastifyInstance {
     if (error instanceof DomainValidationError) {
       reply.status(400).send({
         error: "validation_error",
-        message: error.message
+        message: error.message,
+        fields: []
       });
       return;
     }
 
     app.log.error({ error }, "Unhandled request error");
-    reply.status(500).send({ error: "internal_server_error" });
+    reply.status(500).send({
+      error: "internal_server_error",
+      message: "Unexpected server error"
+    });
   });
 
   app.addHook("onClose", async () => {
@@ -108,6 +114,7 @@ export function createApp(options: AppOptions = {}): FastifyInstance {
   });
 
   app.get("/health", async () => ({ status: "ok" }));
+  app.get("/openapi.json", async () => openApiDocument);
 
   app.get("/users/:id/preferences", async (request) => {
     const params = paramsWithUserIdSchema.parse(request.params);
@@ -187,6 +194,14 @@ function formatMinute(minute: number): string {
   return `${hours.toString().padStart(2, "0")}:${minutes
     .toString()
     .padStart(2, "0")}`;
+}
+
+function formatZodIssues(issues: ZodIssue[]) {
+  return issues.map((issue) => ({
+    path: issue.path.length > 0 ? issue.path.map(String).join(".") : "body",
+    message: issue.message,
+    code: issue.code
+  }));
 }
 
 function logPreferenceUpdate(

@@ -4,7 +4,10 @@ export default defineConfig({
   test: {
     environment: "node",
     globals: false,
-    include: ["tests/{domain,http}/**/*.test.ts"],
-    restoreMocks: true
+    include: ["tests/integration/**/*.test.ts"],
+    restoreMocks: true,
+    sequence: {
+      concurrent: false
+    }
   }
 });
