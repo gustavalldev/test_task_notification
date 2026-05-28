@@ -5,13 +5,16 @@ export const notificationTypes = [
   "transactional_email",
   "transactional_sms",
   "transactional_push",
+  "transactional_messenger",
   "marketing_email",
   "marketing_sms",
-  "marketing_push"
+  "marketing_push",
+  "marketing_messenger"
 ] as const;
 export type NotificationType = (typeof notificationTypes)[number];
 
-export type Region = string;
+export const regions = ["EU", "US", "UK", "CA", "APAC", "LATAM", "MEA"] as const;
+export type Region = (typeof regions)[number];
 
 export type PreferenceSource = "default" | "user";
 
@@ -20,6 +23,12 @@ export type NotificationPreference = {
   channel: Channel;
   enabled: boolean;
   source: PreferenceSource;
+};
+
+export type DefaultPreference = {
+  notificationType: NotificationType;
+  channel: Channel;
+  enabled: boolean;
 };
 
 export type UserPreferenceOverride = {

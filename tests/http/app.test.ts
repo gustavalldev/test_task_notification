@@ -3,12 +3,14 @@ import type { FastifyInstance } from "fastify";
 import { createApp } from "../../src/app.js";
 import { NotificationPreferencesService } from "../../src/domain/notification-preferences-service.js";
 import {
+  InMemoryDefaultPreferenceRepository,
   InMemoryGlobalPolicyRepository,
   InMemoryPreferenceRepository
 } from "../support/in-memory-repositories.js";
 
 function createTestApp(): FastifyInstance {
   const service = new NotificationPreferencesService(
+    new InMemoryDefaultPreferenceRepository(),
     new InMemoryPreferenceRepository(),
     new InMemoryGlobalPolicyRepository()
   );
@@ -90,11 +92,12 @@ describe("HTTP API", () => {
       payload: {
         notificationType: "marketing_sms",
         channel: "sms",
-        region: "EU"
+        region: " eu "
       }
     });
 
     expect(policyResponse.statusCode).toBe(201);
+    expect(policyResponse.json().region).toBe("EU");
 
     const evaluateResponse = await app.inject({
       method: "POST",
@@ -103,7 +106,7 @@ describe("HTTP API", () => {
         userId: "user-1",
         notificationType: "marketing_sms",
         channel: "sms",
-        region: "EU",
+        region: "eu",
         datetime: "2026-05-21T21:30:00Z"
       }
     });
@@ -113,5 +116,24 @@ describe("HTTP API", () => {
       decision: "deny",
       reason: "blocked_by_global_policy"
     });
+  });
+
+  it("rejects unsupported regions", async () => {
+    app = createTestApp();
+
+    const evaluateResponse = await app.inject({
+      method: "POST",
+      url: "/evaluate",
+      payload: {
+        userId: "user-1",
+        notificationType: "transactional_email",
+        channel: "email",
+        region: "Europe",
+        datetime: "2026-05-21T21:30:00Z"
+      }
+    });
+
+    expect(evaluateResponse.statusCode).toBe(400);
+    expect(evaluateResponse.json().error).toBe("validation_error");
   });
 });

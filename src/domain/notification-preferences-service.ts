@@ -1,9 +1,8 @@
 import {
   assertSupportedNotificationPair,
-  defaultPreferences,
-  getDefaultPreference,
   isSuppressibleByQuietHours
-} from "./defaults.js";
+} from "./notification-catalog.js";
+import { DomainValidationError } from "./errors.js";
 import {
   validateEvaluationDatetime,
   validateQuietHours,
@@ -11,6 +10,7 @@ import {
 } from "./quiet-hours.js";
 import type {
   CreateGlobalPolicyInput,
+  DefaultPreferenceRepository,
   GlobalPolicyRepository,
   PreferenceRepository
 } from "./repositories.js";
@@ -33,11 +33,13 @@ export type UpdatePreferencesCommand = {
 
 export class NotificationPreferencesService {
   constructor(
+    private readonly defaults: DefaultPreferenceRepository,
     private readonly preferences: PreferenceRepository,
     private readonly policies: GlobalPolicyRepository
   ) {}
 
   async getPreferences(userId: string): Promise<PreferencesSnapshot> {
+    const defaults = await this.defaults.listDefaultPreferences();
     const overrides = await this.preferences.listUserPreferences(userId);
     const quietHours = await this.preferences.getQuietHours(userId);
     const overrideByPair = new Map(
@@ -47,13 +49,16 @@ export class NotificationPreferencesService {
       ])
     );
 
-    const merged = defaultPreferences.map((preference) => {
+    const merged = defaults.map((preference) => {
       const override = overrideByPair.get(
         preferenceKey(preference.notificationType, preference.channel)
       );
 
       if (!override) {
-        return preference;
+        return {
+          ...preference,
+          source: "default" as const
+        };
       }
 
       return {
@@ -111,7 +116,16 @@ export class NotificationPreferencesService {
       input.notificationType,
       input.channel
     );
-    const defaultPreference = getDefaultPreference(input.notificationType, input.channel);
+    const defaultPreference = await this.defaults.findDefaultPreference(
+      input.notificationType,
+      input.channel
+    );
+    if (!defaultPreference) {
+      throw new DomainValidationError(
+        `No default preference configured for ${input.notificationType}/${input.channel}`
+      );
+    }
+
     const enabled = override?.enabled ?? defaultPreference.enabled;
 
     if (!enabled) {

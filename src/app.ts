@@ -1,6 +1,6 @@
 import Fastify, { type FastifyBaseLogger, type FastifyInstance } from "fastify";
 import { ZodError, z } from "zod";
-import { channels, notificationTypes } from "./domain/types.js";
+import { channels, notificationTypes, regions } from "./domain/types.js";
 import type {
   EvaluationResult,
   PreferencesSnapshot,
@@ -10,6 +10,7 @@ import { DomainValidationError } from "./domain/errors.js";
 import { parseTimeToMinute } from "./domain/quiet-hours.js";
 import { NotificationPreferencesService } from "./domain/notification-preferences-service.js";
 import { createPrismaClient } from "./infrastructure/prisma/client.js";
+import { PrismaDefaultPreferenceRepository } from "./infrastructure/prisma/prisma-default-preference-repository.js";
 import { PrismaGlobalPolicyRepository } from "./infrastructure/prisma/prisma-global-policy-repository.js";
 import { PrismaPreferenceRepository } from "./infrastructure/prisma/prisma-preference-repository.js";
 
@@ -24,6 +25,10 @@ const paramsWithUserIdSchema = z.object({
 
 const notificationTypeSchema = z.enum(notificationTypes);
 const channelSchema = z.enum(channels);
+const regionSchema = z.preprocess(
+  (value) => (typeof value === "string" ? value.trim().toUpperCase() : value),
+  z.enum(regions)
+);
 
 const quietHoursApiSchema = z.object({
   enabled: z.boolean(),
@@ -49,14 +54,14 @@ const evaluateSchema = z.object({
   userId: z.string().min(1),
   notificationType: notificationTypeSchema,
   channel: channelSchema,
-  region: z.string().min(1),
+  region: regionSchema,
   datetime: z.string().min(1)
 });
 
 const createPolicySchema = z.object({
   notificationType: notificationTypeSchema.nullable().optional(),
   channel: channelSchema.nullable().optional(),
-  region: z.string().min(1).nullable().optional(),
+  region: regionSchema.nullable().optional(),
   enabled: z.boolean().optional(),
   reason: z.literal("blocked_by_global_policy").optional()
 });
@@ -71,6 +76,7 @@ export function createApp(options: AppOptions = {}): FastifyInstance {
 
   if (!service) {
     service = new NotificationPreferencesService(
+      new PrismaDefaultPreferenceRepository(prisma!),
       new PrismaPreferenceRepository(prisma!),
       new PrismaGlobalPolicyRepository(prisma!)
     );

@@ -1,11 +1,20 @@
 import type {
   Channel,
+  DefaultPreference,
   EvaluationInput,
   GlobalPolicy,
   NotificationType,
   QuietHours,
   UserPreferenceOverride
 } from "./types.js";
+
+export interface DefaultPreferenceRepository {
+  listDefaultPreferences(): Promise<DefaultPreference[]>;
+  findDefaultPreference(
+    notificationType: NotificationType,
+    channel: Channel
+  ): Promise<DefaultPreference | null>;
+}
 
 export type UpsertUserPreferenceInput = {
   userId: string;

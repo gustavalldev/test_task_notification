@@ -40,7 +40,7 @@ npm run db:push          # push schema without creating a migration
 GET /users/:id/preferences
 ```
 
-Returns the merged preference view: built-in defaults plus user overrides and quiet hours.
+Returns the merged preference view: database-backed defaults plus user overrides and quiet hours.
 
 ### Update preferences
 
@@ -107,15 +107,16 @@ Content-Type: application/json
 }
 ```
 
-`notificationType`, `channel`, and `region` are nullable/optional. `null` means wildcard, so a policy can block a whole region, channel, or notification type.
+`notificationType`, `channel`, and `region` are nullable/optional. `null` means wildcard, so a policy can block a whole region, channel, or notification type. Region values are normalized to uppercase and must be one of `EU`, `US`, `UK`, `CA`, `APAC`, `LATAM`, or `MEA`.
 
 ## Domain Rules
 
-- New users do not require a row in the database. `GET /users/:id/preferences` returns a deterministic default snapshot.
-- Default transactional email/SMS/push notifications are enabled.
-- Default marketing email and SMS are disabled. Marketing push is enabled so quiet-hours behavior is observable without an extra opt-in step.
+- New users do not require a user row. `GET /users/:id/preferences` merges the seeded `DefaultPreference` table with user overrides.
+- Default transactional email/SMS/push/messenger notifications are enabled.
+- Default marketing email and SMS are disabled. Marketing push and messenger are enabled so quiet-hours behavior is observable without an extra opt-in step.
 - User overrides take precedence over defaults.
 - Global policies are evaluated before user preferences because they represent platform/legal constraints.
+- `notificationType` and `channel` must be a supported pair, for example `marketing_email` can only use `email`.
 - Quiet hours use the user's configured IANA timezone and support overnight windows such as `22:00` to `08:00`.
 - Quiet hours block suppressible notification types. In this implementation, suppressible means `marketing_*`; transactional notifications remain allowed if no other rule denies them.
 
@@ -123,10 +124,10 @@ Content-Type: application/json
 
 ```text
 src/domain
-  Business types, defaults, quiet-hours logic, repository interfaces, service
+  Business types, notification catalog, quiet-hours logic, repository interfaces, service
 
 src/infrastructure/prisma
-  PostgreSQL persistence adapters implementing the domain repository interfaces
+  PostgreSQL adapters for default preferences, user preferences, quiet hours, and policies
 
 src/app.ts
   Fastify app factory, REST validation, logging, error mapping
@@ -138,7 +139,7 @@ tests
   Domain and HTTP tests using in-memory repository implementations
 ```
 
-The domain service depends on interfaces, not Prisma. Tests exercise the same business logic through in-memory repositories, while production uses Prisma repositories backed by PostgreSQL.
+The domain service depends on interfaces, not Prisma. Default preferences are seeded in PostgreSQL and exposed through a repository, so changing platform defaults is a data/migration concern rather than a domain-code edit. Tests exercise the same business logic through in-memory repositories, while production uses Prisma repositories backed by PostgreSQL.
 
 ## Logging
 
@@ -148,5 +149,5 @@ Fastify/Pino logs preference updates, policy creation, and every evaluation deci
 
 - Add authentication and authorization for user preference writes and admin policy endpoints.
 - Add request IDs, metrics counters for allow/deny reasons, and tracing around repository calls.
-- Add migration/seed workflows per environment and database-level constraints for supported enum values.
+- Add a small admin flow for changing default preferences and policy lifecycle management.
 - Add optimistic concurrency or audit history if preference changes need compliance-grade traceability.

@@ -1,16 +1,18 @@
 import { describe, expect, it } from "vitest";
 import { NotificationPreferencesService } from "../../src/domain/notification-preferences-service.js";
 import {
+  InMemoryDefaultPreferenceRepository,
   InMemoryGlobalPolicyRepository,
   InMemoryPreferenceRepository
 } from "../support/in-memory-repositories.js";
 
 function createSubject() {
+  const defaults = new InMemoryDefaultPreferenceRepository();
   const preferences = new InMemoryPreferenceRepository();
   const policies = new InMemoryGlobalPolicyRepository();
-  const service = new NotificationPreferencesService(preferences, policies);
+  const service = new NotificationPreferencesService(defaults, preferences, policies);
 
-  return { service, preferences, policies };
+  return { service, defaults, preferences, policies };
 }
 
 describe("NotificationPreferencesService", () => {

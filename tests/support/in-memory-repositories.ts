@@ -1,17 +1,57 @@
 import type {
   CreateGlobalPolicyInput,
+  DefaultPreferenceRepository,
   GlobalPolicyRepository,
   PreferenceRepository,
   UpsertUserPreferenceInput
 } from "../../src/domain/repositories.js";
 import type {
   Channel,
+  DefaultPreference,
   EvaluationInput,
   GlobalPolicy,
   NotificationType,
   QuietHours,
   UserPreferenceOverride
 } from "../../src/domain/types.js";
+
+const defaultPreferenceSeed: DefaultPreference[] = [
+  { notificationType: "transactional_email", channel: "email", enabled: true },
+  { notificationType: "transactional_sms", channel: "sms", enabled: true },
+  { notificationType: "transactional_push", channel: "push", enabled: true },
+  {
+    notificationType: "transactional_messenger",
+    channel: "messenger",
+    enabled: true
+  },
+  { notificationType: "marketing_email", channel: "email", enabled: false },
+  { notificationType: "marketing_sms", channel: "sms", enabled: false },
+  { notificationType: "marketing_push", channel: "push", enabled: true },
+  { notificationType: "marketing_messenger", channel: "messenger", enabled: true }
+];
+
+export class InMemoryDefaultPreferenceRepository implements DefaultPreferenceRepository {
+  constructor(
+    private readonly defaults: DefaultPreference[] = defaultPreferenceSeed.map((item) => ({
+      ...item
+    }))
+  ) {}
+
+  async listDefaultPreferences(): Promise<DefaultPreference[]> {
+    return this.defaults.map((preference) => ({ ...preference }));
+  }
+
+  async findDefaultPreference(
+    notificationType: NotificationType,
+    channel: Channel
+  ): Promise<DefaultPreference | null> {
+    const preference = this.defaults.find(
+      (item) => item.notificationType === notificationType && item.channel === channel
+    );
+
+    return preference ? { ...preference } : null;
+  }
+}
 
 export class InMemoryPreferenceRepository implements PreferenceRepository {
   private readonly preferences = new Map<string, UserPreferenceOverride>();

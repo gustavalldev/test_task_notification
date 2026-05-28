@@ -8,7 +8,8 @@ import type {
   EvaluationInput,
   EvaluationReason,
   GlobalPolicy,
-  NotificationType
+  NotificationType,
+  Region
 } from "../../domain/types.js";
 
 export class PrismaGlobalPolicyRepository implements GlobalPolicyRepository {
@@ -37,7 +38,7 @@ export class PrismaGlobalPolicyRepository implements GlobalPolicyRepository {
       id: row.id,
       notificationType: row.notificationType as NotificationType | null,
       channel: row.channel as Channel | null,
-      region: row.region,
+      region: row.region as Region | null,
       enabled: row.enabled,
       reason: row.reason as EvaluationReason
     }));
@@ -58,7 +59,7 @@ export class PrismaGlobalPolicyRepository implements GlobalPolicyRepository {
       id: row.id,
       notificationType: row.notificationType as NotificationType | null,
       channel: row.channel as Channel | null,
-      region: row.region,
+      region: row.region as Region | null,
       enabled: row.enabled,
       reason: row.reason as EvaluationReason
     };
